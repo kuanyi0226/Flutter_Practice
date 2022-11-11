@@ -40,16 +40,32 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   List<Article> articles = [];
   int _pageIndex = 1;
+  // back to top while changing to next page
+  final controller = ScrollController();
 
-  void _nextPage() {
+  void _nextPage(String NextorPrevious) {
     setState(() {
-      _pageIndex++;
-      //一直在Page1~4巡迴
-      if (_pageIndex > 4) {
-        _pageIndex = 1;
-      }
-      print("$_pageIndex");
       getWebsiteData();
+
+      controller.animateTo(0,
+          duration: Duration(seconds: 2),
+          curve: Curves
+              .fastLinearToSlowEaseIn); /*jump to top of screen with animation*/
+      if (NextorPrevious == 'Next') {
+        _pageIndex++;
+        //一直在Page1~10巡迴
+        if (_pageIndex > 10) {
+          _pageIndex = 1;
+        }
+      } else if (NextorPrevious == 'Previous') {
+        _pageIndex--;
+        //一直在Page1~10巡迴
+        if (_pageIndex == 0) {
+          _pageIndex = 10;
+        }
+      }
+
+      print("page:$_pageIndex");
     });
   }
 
@@ -61,7 +77,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future getWebsiteData() async {
     final url =
-        Uri.parse('https://www.amazon.com/s?k=中島みゆきcd&page=${_pageIndex}');
+        Uri.parse('https://www.amazon.co.jp/s?k=中島みゆき&page=${_pageIndex}');
     final response = await http.get(url);
     dom.Document html = dom.Document.html(response.body);
 
@@ -97,48 +113,61 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('中島みゆき in Amazon'),
-        centerTitle: true,
-      ),
-      body: articles.isEmpty
-          ? Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(30),
-                  child: Center(
-                    child: Image(
-                        image: NetworkImage(
-                            'http://img-cdn.jg.jugem.jp/e36/2411548/20140812_280861.jpg')),
+        appBar: AppBar(
+          title: const Text('中島みゆき in Amazon'),
+          centerTitle: true,
+        ),
+        body: articles.isEmpty
+            ? Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(30),
+                    child: Center(
+                      child: Image(
+                          image: NetworkImage(
+                              'http://img-cdn.jg.jugem.jp/e36/2411548/20140812_280861.jpg')),
+                    ),
                   ),
-                ),
-                Text('Waiting for crawler~')
-              ],
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: articles.length,
-              itemBuilder: (context, index) {
-                final article = articles[index];
+                  Text(
+                    'Waiting for crawler~',
+                    textAlign: TextAlign.center,
+                  )
+                ],
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: articles.length,
+                controller: controller /*jump to top */,
+                itemBuilder: (context, index) {
+                  final article = articles[index];
 
-                return ListTile(
-                  leading: Image.network(
-                    article.urlImage,
-                    width: 50,
-                    fit: BoxFit.fitHeight,
-                  ),
-                  title: Text(article.title),
-                  subtitle: Text(
-                    article.url,
-                    style: TextStyle(fontSize: 12),
-                  ),
-                );
-              },
+                  return ListTile(
+                    leading: Image.network(
+                      article.urlImage,
+                      width: 50,
+                      fit: BoxFit.fitHeight,
+                    ),
+                    title: Text(article.title),
+                    subtitle: Text(
+                      article.url,
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  );
+                },
+              ),
+        floatingActionButton: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            FloatingActionButton(
+              onPressed: () => _nextPage("Previous"),
+              child: Icon(Icons.arrow_left),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _nextPage,
-        child: Icon(Icons.arrow_right),
-      ),
-    );
+            Text("$_pageIndex"),
+            FloatingActionButton(
+              onPressed: () => _nextPage("Next"),
+              child: Icon(Icons.arrow_right),
+            ),
+          ],
+        ));
   }
 }
