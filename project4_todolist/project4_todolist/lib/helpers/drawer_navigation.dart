@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../src/colors.dart';
 import '../screens/home_screen.dart';
 import '../screens/categories_screen.dart';
+import '../services/category_service.dart';
+import '../screens/todos_by_categ.dart';
 
 class DrawerNavigation extends StatefulWidget {
   @override
@@ -10,6 +12,34 @@ class DrawerNavigation extends StatefulWidget {
 }
 
 class _DrawerNavigationState extends State<DrawerNavigation> {
+  List<Widget> _categoryList = <Widget>[];
+  CategoryService _categoryService = CategoryService();
+
+  @override
+  void initState() {
+    super.initState();
+    getAllCateg();
+  }
+
+  getAllCateg() async {
+    var categories = await _categoryService.readCategories();
+    setState(() {
+      categories.forEach((categ) {
+        _categoryList.add(InkWell(
+          onTap: () => Navigator.push(
+              context,
+              new MaterialPageRoute(
+                  builder: (context) => new TodosByCateg(
+                        category: categ['name'],
+                      ))),
+          child: ListTile(
+            title: Text(categ['name']),
+          ),
+        ));
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -36,6 +66,10 @@ class _DrawerNavigationState extends State<DrawerNavigation> {
               onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (context) => CategoriesScreen())),
             ),
+            Divider(),
+            Column(
+              children: _categoryList,
+            )
           ],
         ),
       ),

@@ -50,4 +50,11 @@ class Repository {
     var connection = await database;
     return await connection!.rawDelete("DELETE FROM $table WHERE id = $itemId");
   }
+
+  //Read data from table by Column Name
+  readDataByColumnName(String table, String colName, String colValue) async {
+    var connection = await database;
+    return await connection!
+        .query(table, where: '$colName=?', whereArgs: [colValue]);
+  }
 }
