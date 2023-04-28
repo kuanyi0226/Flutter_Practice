@@ -1,104 +1,167 @@
-import 'package:flutter/material.dart'; //provide base class to build widgets
+import 'package:flutter/material.dart';
 
-import 'answer.dart';
-import 'quiz.dart';
-import 'result.dart';
-
-//設計問答App
+import './database_helper.dart';
 
 void main() {
   runApp(MyApp());
 }
 
-//inherit(inside the class: variables are called properties; functions are called methods)
-//MyApp 這個Stateful Widget能持續更新，MyAppState是它的初始態
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
-  State<StatefulWidget> createState() {
-    return MyAppState();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Demo',
+      theme: ThemeData(primaryColor: Colors.blue),
+      home: MyHomePage(),
+    );
   }
 }
 
-//連接到MyApp
-class MyAppState extends State<MyApp> {
-  var _questionindex = 0; //控制目前頁面顯示的問題
-  var _totalScore = 0;
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key});
 
-  void _resetQuiz() {
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  List<Map<String, dynamic>> _itemList = [];
+  bool _isLoading = true;
+
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshItems();
+    print('Number of items: ${_itemList.length}');
+  }
+
+  void _refreshItems() async {
+    final data = await SQLHelper.getItems();
     setState(() {
-      _questionindex = 0;
-      _totalScore = 0;
+      _itemList = data;
+      _isLoading = false;
     });
   }
 
-  void AnswerQuestion(int score) {
-    _totalScore += score;
-
-    //告訴flutter我要更新state了，強制re-render
-    setState(() {
-      _questionindex += 1; //答完一題就更新下一題的題目
-    });
-
-    if (_questionindex < _questions.length) {
-      print('We have more questions!');
-    } else {
-      print('No more questions!');
-    }
+  Future<void> _addItem() async {
+    await SQLHelper.createItem(
+        _titleController.text, _descriptionController.text);
+    _refreshItems();
+    print(_itemList.length);
   }
 
-  //建立問題及選項的list by資料結構Map
-  //const後面datatype(var,int...)可以省略
-  //依照不同選項給分
-  final _questions = const [
-    {
-      'questiontext': 'What\'s your favorite color?',
-      'answers': [
-        {'text': 'Black', 'score': 10},
-        {'text': 'Red', 'score': 5},
-        {'text': 'Green', 'score': 3},
-        {'text': 'White', 'score': 1},
-      ],
-    },
-    {
-      'questiontext': 'What\'s your favorite animal?',
-      'answers': [
-        {'text': 'Rabbit', 'score': 10},
-        {'text': 'Dog', 'score': 5},
-        {'text': 'Cat', 'score': 3},
-        {'text': 'Fish', 'score': 1}
-      ],
-    },
-    {
-      'questiontext': 'Who\'s your favorite idol?',
-      'answers': [
-        {'text': 'Miyuki', 'score': 10},
-        {'text': 'Adele', 'score': 5},
-        {'text': 'Taylor', 'score': 3},
-        {'text': 'Justin', 'score': 1},
-      ],
-    }
-  ];
+  Future<void> _updateItem(int id) async {
+    await SQLHelper.updateItem(
+        id, _titleController.text, _descriptionController.text);
+    _refreshItems();
+    print(_itemList.length);
+  }
 
-  @override //return type: Widget
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text('My first app'),
+  void _deleteItem(int id) async {
+    await SQLHelper.deleteItem(id);
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Successfully deleted an item')));
+    _refreshItems();
+  }
+
+  void showEditField(int? id) async {
+    //For Edit: id != null, read the info to textfield
+    if (id != null) {
+      final exsistingItem =
+          _itemList.firstWhere((element) => element['id'] == id);
+      _titleController.text = exsistingItem['title'];
+      _descriptionController.text = exsistingItem['description'];
+    }
+
+    //For Edit and Create(id == null)
+    showModalBottomSheet(
+      context: context,
+      elevation: 5,
+      builder: (_) => Container(
+        child: Column(
+          children: [
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(hintText: 'Title'),
+            ),
+            SizedBox(
+              height: 10,
+            ),
+            TextField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(hintText: 'Description'),
+            ),
+            SizedBox(
+              height: 10,
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (id == null) {
+                  await _addItem();
+                } else {
+                  await _updateItem(id);
+                }
+
+                //Clear the text_field
+                _titleController.text = '';
+                _descriptionController.text = '';
+
+                Navigator.of(context).pop();
+              },
+              child: Text((id == null) ? 'Create New' : 'Update'),
+            ),
+          ],
         ),
-        //若運行完所有題目，就不再產生問題
-        body: _questionindex < _questions.length
-            ? Quiz(
-                answerQuestion: AnswerQuestion,
-                questionIndex: _questionindex,
-                questions: _questions,
-              )
-            : Result(_totalScore, _resetQuiz),
       ),
     );
-    //MaterialApp() is an object; scaffold helps you build basic page
   }
 
-  //Conneting Functoins & Buttons
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      //Bar
+      appBar: AppBar(
+        title: Text('Database Test'),
+      ),
+      //ListView
+      body: (_itemList.length == 0)
+          ? Container()
+          : Container(
+              child: ListView.builder(
+                itemCount: _itemList.length,
+                itemBuilder: (context, index) => ListTile(
+                  title: Text(_itemList[index]['title']),
+                  subtitle: Text(_itemList[index]['description']),
+                  trailing: SizedBox(
+                    //must wrap the Row Widget(cuz it's in a ListView)
+                    width: 100,
+                    child: Row(children: [
+                      //Edit Button
+                      IconButton(
+                        onPressed: () => showEditField(_itemList[index]['id']),
+                        icon: Icon(Icons.edit),
+                      ),
+                      //Delete Button
+                      IconButton(
+                        onPressed: () => _deleteItem(_itemList[index]['id']),
+                        icon: Icon(Icons.delete),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
 
+      //Button
+      floatingActionButton: FloatingActionButton(
+        child: Icon(Icons.add),
+        onPressed: () => showEditField(null),
+      ),
+    );
+  }
 }
